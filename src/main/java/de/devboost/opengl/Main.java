@@ -1,37 +1,28 @@
 package de.devboost.opengl;
 
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.glfw.GLFWErrorCallback;
-import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.glfw.GLFWKeyCallbackI;
+import org.lwjgl.glfw.GLFWWindowRefreshCallbackI;
 import org.lwjgl.opengl.GL;
-import org.lwjgl.system.MemoryStack;
 
-import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.system.MemoryStack.stackPush;
-import static org.lwjgl.system.MemoryUtil.NULL;
 
 public class Main {
 
-	// The window handle
-	private long window;
-
-	private Vector3f cameraPosition = new Vector3f(0.0f, 0.0f, 10.0f);
-	private Vector3f cameraDirection = new Vector3f(0, 0, -1);
+	private Window window = new Window("First Cube", 800, 600);
+	private Camera camera = new Camera(new Vector3f(0.0f, 0.0f, 10.0f), new Vector3f(0, 0, -1));
 
 	public void run() {
 		init();
 		loop();
 
-		// Free the window callbacks and destroy the window
-		glfwFreeCallbacks(window);
-		glfwDestroyWindow(window);
+		window.destroy();
 
 		// Terminate GLFW and free the error callback
 		glfwTerminate();
@@ -39,28 +30,7 @@ public class Main {
 	}
 
 	private void init() {
-		// Setup an error callback. The default implementation
-		// will print the error message in System.err.
-		GLFWErrorCallback.createPrint(System.err).set();
-
-		// Initialize GLFW. Most GLFW functions will not work before doing this.
-		if (!glfwInit()) {
-			throw new IllegalStateException("Unable to initialize GLFW");
-		}
-
-		// Configure GLFW
-		glfwDefaultWindowHints(); // optional, the current window hints are already the default
-		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE); // the window will stay hidden after creation
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
-
-		// Create the window
-		window = glfwCreateWindow(800, 600, "Hello World!", NULL, NULL);
-		if (window == NULL) {
-			throw new RuntimeException("Failed to create the GLFW window");
-		}
-
-		// Setup a key callback. It will be called every time a key is pressed, repeated or released.
-		glfwSetKeyCallback(window, (window, key, scancode, action, mods) -> {
+		GLFWKeyCallbackI keyCallback = (window, key, scancode, action, mods) -> {
 			float rotation = 0;
 			float speed = 0.5f;
 			float rotationSpeed = 2;
@@ -81,37 +51,28 @@ public class Main {
 			} else if (key == GLFW_KEY_D) {
 				sideways = speed;
 			}
-			cameraPosition.add(new Vector3f(cameraDirection).normalize().mul(forward))
-					.add(new Vector3f(-cameraDirection.z, cameraDirection.y, cameraDirection.x).mul(sideways));
-			cameraDirection.rotateY((float) Math.toRadians(rotation));
-		});
+			Vector3f forwardMovement = new Vector3f(camera.getDirection()).normalize().mul(forward);
+			Vector3f sidewaysMovement = new Vector3f(-camera.getDirection().z,
+					camera.getDirection().y,
+					camera.getDirection().x)
+					.mul(sideways);
+			camera.getPosition().add(forwardMovement)
+					.add(sidewaysMovement);
+			camera.getDirection().rotateY((float) Math.toRadians(rotation));
+		};
 
-		// Get the thread stack and push a new frame
-		try (MemoryStack stack = stackPush()) {
-			IntBuffer pWidth = stack.mallocInt(1); // int*
-			IntBuffer pHeight = stack.mallocInt(1); // int*
+		GLFWWindowRefreshCallbackI refreshCallback = (windowHandle) -> {
+			FloatBuffer fb = BufferUtils.createFloatBuffer(16);
+			Matrix4f m = new Matrix4f();
+			m.setPerspective((float) Math.toRadians(45.0f),
+					(float) window.getWidth() / (float) window.getHeight(),
+					0.01f,
+					100.0f);
+			glMatrixMode(GL_PROJECTION);
+			glLoadMatrixf(m.get(fb));
+		};
 
-			// Get the window size passed to glfwCreateWindow
-			glfwGetWindowSize(window, pWidth, pHeight);
-
-			// Get the resolution of the primary monitor
-			GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-
-			// Center the window
-			glfwSetWindowPos(
-					window,
-					(vidmode.width() - pWidth.get(0)) / 2,
-					(vidmode.height() - pHeight.get(0)) / 2
-			);
-		} // the stack frame is popped automatically
-
-		// Make the OpenGL context current
-		glfwMakeContextCurrent(window);
-		// Enable v-sync
-		glfwSwapInterval(1);
-
-		// Make the window visible
-		glfwShowWindow(window);
+		window.init(keyCallback, refreshCallback);
 	}
 
 	private void loop() {
@@ -124,48 +85,30 @@ public class Main {
 
 		// Set the clear color
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+		// Enable depth testing, which lets 3D shapes render correctly
 		glEnable(GL_DEPTH_TEST);
 
 		// Run the rendering loop until the user has attempted to close
 		// the window or has pressed the ESCAPE key.
-		while (!glfwWindowShouldClose(window)) {
+		while (!window.shouldClose()) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
 
-			setupProjectionAndView();
+			setupView();
 
 			cube();
 
-			glfwSwapBuffers(window); // swap the color buffers
-
-			// Poll for window events. The key callback above will only be
-			// invoked during this call.
-			glfwPollEvents();
+			window.swapBuffers();
+			window.pollEvents();
 		}
 	}
 
-	private void setupProjectionAndView() {
-		int width = 0;
-		int height = 0;
-		try (MemoryStack stack = stackPush()) {
-			IntBuffer pWidth = stack.mallocInt(1); // int*
-			IntBuffer pHeight = stack.mallocInt(1); // int*
-
-			glfwGetWindowSize(window, pWidth, pHeight);
-
-			width = pWidth.get(0);
-			height = pWidth.get(0);
-			glViewport(0, 0, width, height);
-		}
-
+	private void setupView() {
 		FloatBuffer fb = BufferUtils.createFloatBuffer(16);
 		Matrix4f m = new Matrix4f();
-		m.setPerspective((float) Math.toRadians(45.0f), (float) width / (float) height, 0.01f, 100.0f);
-		glMatrixMode(GL_PROJECTION);
-		glLoadMatrixf(m.get(fb));
-
 		m.setLookAt(
-				cameraPosition,
-				new Vector3f(cameraPosition).add(cameraDirection),
+				camera.getPosition(),
+				new Vector3f(camera.getPosition()).add(camera.getDirection()),
 				new Vector3f(0.0f, 1.0f, 0.0f)
 		);
 		glMatrixMode(GL_MODELVIEW);
