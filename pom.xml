@@ -10,6 +10,7 @@
 
 	<properties>
 		<lwjgl.version>3.1.6</lwjgl.version>
+		<joml.version>1.9.9</joml.version>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
@@ -160,6 +161,11 @@
 			<artifactId>lwjgl-stb</artifactId>
 			<version>${lwjgl.version}</version>
 			<classifier>${lwjgl.natives}</classifier>
+		</dependency>
+		<dependency>
+			<groupId>org.joml</groupId>
+			<artifactId>joml</artifactId>
+			<version>${joml.version}</version>
 		</dependency>
 	</dependencies>
 </project>
