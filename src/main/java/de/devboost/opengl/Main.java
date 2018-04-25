@@ -1,17 +1,22 @@
 package de.devboost.opengl;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.nio.FloatBuffer;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
-import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWKeyCallbackI;
 import org.lwjgl.glfw.GLFWWindowRefreshCallbackI;
 import org.lwjgl.opengl.GL;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
 public class Main {
 
@@ -94,7 +99,7 @@ public class Main {
 		while (!window.shouldClose()) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
 
-			setupView();
+			setupModelView();
 
 			cube();
 
@@ -103,7 +108,7 @@ public class Main {
 		}
 	}
 
-	private void setupView() {
+	private void setupModelView() {
 		FloatBuffer fb = BufferUtils.createFloatBuffer(16);
 		Matrix4f m = new Matrix4f();
 		m.setLookAt(
@@ -116,7 +121,7 @@ public class Main {
 	}
 
 	private void cube() {
-		int[] vertices = {
+		float[] vertices = {
 				// front
 				1, 1, 1, 1, 0, 0,
 				-1, 1, 1, 1, 0, 0,
@@ -165,12 +170,102 @@ public class Main {
 				1, -1, -1, 1, 1, 0,
 				1, -1, 1, 1, 1, 0,
 		};
-		glBegin(GL_TRIANGLES);
-		for (int i = 0; i < vertices.length; i += 6) {
-			glColor3f(vertices[i + 3], vertices[i + 4], vertices[i + 5]);
-			glVertex3f(vertices[i], vertices[i + 1], vertices[i + 2]);
+
+		// Create the shader program
+		int programHandle = glCreateProgram();
+
+		// Load the vertex shader source code
+		int vertexShaderHandle = glCreateShader(GL_VERTEX_SHADER);
+		BufferedReader reader = new BufferedReader(new InputStreamReader(Main.class.getResourceAsStream("vertex.glsl")));
+		String sourceString = reader.lines()
+				.reduce((first, second) -> first + "\n" + second)
+				.orElse("");
+
+		// Attach the source code to the vertex shader
+		glShaderSource(
+				vertexShaderHandle,
+				sourceString
+		);
+
+		// Compile the vertex shader
+		glCompileShader(vertexShaderHandle);
+
+		// Check for errors
+		int status = glGetShaderi(vertexShaderHandle, GL_COMPILE_STATUS);
+		if (status != GL_TRUE) {
+			throw new RuntimeException(glGetShaderInfoLog(vertexShaderHandle));
 		}
-		glEnd();
+
+		// Attach the vertex shader to the shader program
+		glAttachShader(programHandle, vertexShaderHandle);
+
+		// Load the fragment shader source code
+		int fragmentShaderHandle = glCreateShader(GL_FRAGMENT_SHADER);
+		reader = new BufferedReader(new InputStreamReader(Main.class.getResourceAsStream("fragment.glsl")));
+		sourceString = reader.lines()
+				.reduce((first, second) -> first + "\n" + second)
+				.orElse("");
+
+		// Attach the source code to the fragment shader
+		glShaderSource(
+				fragmentShaderHandle,
+				sourceString
+		);
+
+		// Compile the fragment shader
+		glCompileShader(fragmentShaderHandle);
+
+		// Check for errors
+		status = glGetShaderi(fragmentShaderHandle, GL_COMPILE_STATUS);
+		if (status != GL_TRUE) {
+			throw new RuntimeException(glGetShaderInfoLog(fragmentShaderHandle));
+		}
+
+		// Attach the fragment shader to the shader program
+		glAttachShader(programHandle, fragmentShaderHandle);
+
+		// Link the shader program
+		glLinkProgram(programHandle);
+
+		// Check for errors
+		status = glGetProgrami(programHandle, GL_LINK_STATUS);
+		if (status != GL_TRUE) {
+			throw new RuntimeException(glGetProgramInfoLog(programHandle));
+		}
+
+		// Bind the shader program, so that it will be used by the next draw call
+		glUseProgram(programHandle);
+
+		// Create a vertex array object and bind it
+		int vao = glGenVertexArrays();
+		glBindVertexArray(vao);
+
+		// Create a vertex buffer object, bind it and upload our vertices to it
+		int vbo = glGenBuffers();
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
+
+		int floatSize = 4;
+		// Number of floats * Size of data type float in bytes = bytes per vertex
+		int stride = 6 * floatSize;
+
+		// Get the location of the position vector, enable it and specify where it's data is
+		int posAttribute = glGetAttribLocation(programHandle, "a_Position");
+		glEnableVertexAttribArray(posAttribute);
+		glVertexAttribPointer(posAttribute, 3, GL_FLOAT, false, stride, 0);
+
+		// Get the location of the color vector, enable it and specify where it's data is
+		int colAttribute = glGetAttribLocation(programHandle, "a_Color");
+		glEnableVertexAttribArray(colAttribute);
+		glVertexAttribPointer(colAttribute, 3, GL_FLOAT, false, stride, 3 * floatSize);
+
+		// Draw the currently bound state
+		glDrawArrays(GL_TRIANGLES, 0, vertices.length / 6);
+
+		// Reset state
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glUseProgram(0);
 	}
 
 	public static void main(String[] args) {

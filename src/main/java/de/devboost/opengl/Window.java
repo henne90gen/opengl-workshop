@@ -60,7 +60,7 @@ public class Window {
 				glfwGetWindowSize(windowHandle, pWidth, pHeight);
 
 				width = pWidth.get(0);
-				height = pWidth.get(0);
+				height = pHeight.get(0);
 				glViewport(0, 0, width, height);
 				refreshCallback.callback(window);
 			}
