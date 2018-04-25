@@ -126,54 +126,41 @@ public class Main {
 
 	private void cube() {
 		float[] vertices = {
+				1, 1, 1,    // 0
+				-1, 1, 1,   // 1
+				1, -1, 1,   // 2
+				1, 1, -1,   // 3
+				1, -1, -1,  // 4
+				-1, 1, -1,  // 5
+				-1, -1, 1,  // 6
+				-1, -1, -1  // 7
+		};
+		int[] indices = {
 				// front
-				1, 1, 1, 1, 0, 0,
-				-1, 1, 1, 1, 0, 0,
-				-1, -1, 1, 1, 0, 0,
-				1, 1, 1, 1, 0, 0,
-				-1, -1, 1, 1, 0, 0,
-				1, -1, 1, 1, 0, 0,
+				0, 1, 6,
+				0, 6, 2,
 
 				// right
-				1, 1, 1, 0, 1, 0,
-				1, -1, 1, 0, 1, 0,
-				1, -1, -1, 0, 1, 0,
-				1, 1, 1, 0, 1, 0,
-				1, -1, -1, 0, 1, 0,
-				1, 1, -1, 0, 1, 0,
+				0, 2, 4,
+				0, 4, 3,
 
 				// back
-				1, 1, -1, 0, 0, 1,
-				-1, -1, -1, 0, 0, 1,
-				-1, 1, -1, 0, 0, 1,
-				1, 1, -1, 0, 0, 1,
-				1, -1, -1, 0, 0, 1,
-				-1, -1, -1, 0, 0, 1,
+				3, 7, 5,
+				3, 4, 7,
 
 				// left
-				-1, 1, 1, 0, 1, 1,
-				-1, -1, -1, 0, 1, 1,
-				-1, -1, 1, 0, 1, 1,
-				-1, 1, 1, 0, 1, 1,
-				-1, 1, -1, 0, 1, 1,
-				-1, -1, -1, 0, 1, 1,
+				1, 7, 6,
+				1, 5, 7,
 
 				// top
-				-1, 1, 1, 1, 0, 1,
-				1, 1, -1, 1, 0, 1,
-				-1, 1, -1, 1, 0, 1,
-				-1, 1, 1, 1, 0, 1,
-				1, 1, 1, 1, 0, 1,
-				1, 1, -1, 1, 0, 1,
+				1, 3, 5,
+				1, 0, 3,
 
 				// bottom
-				-1, -1, 1, 1, 1, 0,
-				-1, -1, -1, 1, 1, 0,
-				1, -1, -1, 1, 1, 0,
-				-1, -1, 1, 1, 1, 0,
-				1, -1, -1, 1, 1, 0,
-				1, -1, 1, 1, 1, 0,
+				6, 7, 4,
+				6, 4, 2,
 		};
+
 		shader.bind();
 
 		// Create a vertex array object and bind it
@@ -185,22 +172,21 @@ public class Main {
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 		glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
 
+		int vboIndices = glGenBuffers();
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboIndices);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW);
+
 		int floatSize = 4;
 		// Number of floats * Size of data type float in bytes = bytes per vertex
-		int stride = 6 * floatSize;
+		int stride = 3 * floatSize;
 
 		// Get the location of the position vector, enable it and specify where it's data is
 		int posAttribute = glGetAttribLocation(shader.getHandle(), "a_Position");
 		glEnableVertexAttribArray(posAttribute);
 		glVertexAttribPointer(posAttribute, 3, GL_FLOAT, false, stride, 0);
 
-		// Get the location of the color vector, enable it and specify where it's data is
-		int colAttribute = glGetAttribLocation(shader.getHandle(), "a_Color");
-		glEnableVertexAttribArray(colAttribute);
-		glVertexAttribPointer(colAttribute, 3, GL_FLOAT, false, stride, 3 * floatSize);
-
 		// Draw the currently bound state
-		glDrawArrays(GL_TRIANGLES, 0, vertices.length / 6);
+		glDrawElements(GL_TRIANGLES, indices.length, GL_UNSIGNED_INT, 0);
 
 		// Reset state
 		shader.unbind();
