@@ -1,7 +1,5 @@
 package de.devboost.opengl;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.nio.FloatBuffer;
 
 import org.joml.Matrix4f;
@@ -22,6 +20,7 @@ public class Main {
 
 	private Window window = new Window("First Cube", 800, 600);
 	private Camera camera = new Camera(new Vector3f(0.0f, 0.0f, 10.0f), new Vector3f(0, 0, -1));
+	private Shader shader;
 
 	public void run() {
 		init();
@@ -93,6 +92,11 @@ public class Main {
 
 		// Enable depth testing, which lets 3D shapes render correctly
 		glEnable(GL_DEPTH_TEST);
+
+		shader = new Shader(
+				Main.class.getResourceAsStream("vertex.glsl"),
+				Main.class.getResourceAsStream("fragment.glsl")
+		);
 
 		// Run the rendering loop until the user has attempted to close
 		// the window or has pressed the ESCAPE key.
@@ -170,71 +174,7 @@ public class Main {
 				1, -1, -1, 1, 1, 0,
 				1, -1, 1, 1, 1, 0,
 		};
-
-		// Create the shader program
-		int programHandle = glCreateProgram();
-
-		// Load the vertex shader source code
-		int vertexShaderHandle = glCreateShader(GL_VERTEX_SHADER);
-		BufferedReader reader = new BufferedReader(new InputStreamReader(Main.class.getResourceAsStream("vertex.glsl")));
-		String sourceString = reader.lines()
-				.reduce((first, second) -> first + "\n" + second)
-				.orElse("");
-
-		// Attach the source code to the vertex shader
-		glShaderSource(
-				vertexShaderHandle,
-				sourceString
-		);
-
-		// Compile the vertex shader
-		glCompileShader(vertexShaderHandle);
-
-		// Check for errors
-		int status = glGetShaderi(vertexShaderHandle, GL_COMPILE_STATUS);
-		if (status != GL_TRUE) {
-			throw new RuntimeException(glGetShaderInfoLog(vertexShaderHandle));
-		}
-
-		// Attach the vertex shader to the shader program
-		glAttachShader(programHandle, vertexShaderHandle);
-
-		// Load the fragment shader source code
-		int fragmentShaderHandle = glCreateShader(GL_FRAGMENT_SHADER);
-		reader = new BufferedReader(new InputStreamReader(Main.class.getResourceAsStream("fragment.glsl")));
-		sourceString = reader.lines()
-				.reduce((first, second) -> first + "\n" + second)
-				.orElse("");
-
-		// Attach the source code to the fragment shader
-		glShaderSource(
-				fragmentShaderHandle,
-				sourceString
-		);
-
-		// Compile the fragment shader
-		glCompileShader(fragmentShaderHandle);
-
-		// Check for errors
-		status = glGetShaderi(fragmentShaderHandle, GL_COMPILE_STATUS);
-		if (status != GL_TRUE) {
-			throw new RuntimeException(glGetShaderInfoLog(fragmentShaderHandle));
-		}
-
-		// Attach the fragment shader to the shader program
-		glAttachShader(programHandle, fragmentShaderHandle);
-
-		// Link the shader program
-		glLinkProgram(programHandle);
-
-		// Check for errors
-		status = glGetProgrami(programHandle, GL_LINK_STATUS);
-		if (status != GL_TRUE) {
-			throw new RuntimeException(glGetProgramInfoLog(programHandle));
-		}
-
-		// Bind the shader program, so that it will be used by the next draw call
-		glUseProgram(programHandle);
+		shader.bind();
 
 		// Create a vertex array object and bind it
 		int vao = glGenVertexArrays();
@@ -250,12 +190,12 @@ public class Main {
 		int stride = 6 * floatSize;
 
 		// Get the location of the position vector, enable it and specify where it's data is
-		int posAttribute = glGetAttribLocation(programHandle, "a_Position");
+		int posAttribute = glGetAttribLocation(shader.getHandle(), "a_Position");
 		glEnableVertexAttribArray(posAttribute);
 		glVertexAttribPointer(posAttribute, 3, GL_FLOAT, false, stride, 0);
 
 		// Get the location of the color vector, enable it and specify where it's data is
-		int colAttribute = glGetAttribLocation(programHandle, "a_Color");
+		int colAttribute = glGetAttribLocation(shader.getHandle(), "a_Color");
 		glEnableVertexAttribArray(colAttribute);
 		glVertexAttribPointer(colAttribute, 3, GL_FLOAT, false, stride, 3 * floatSize);
 
@@ -263,7 +203,7 @@ public class Main {
 		glDrawArrays(GL_TRIANGLES, 0, vertices.length / 6);
 
 		// Reset state
-		glBindVertexArray(0);
+		shader.unbind();
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		glUseProgram(0);
 	}
