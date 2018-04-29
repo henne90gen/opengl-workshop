@@ -1,8 +1,9 @@
 attribute vec3 a_Position;
+attribute vec2 a_UV;
 
-varying vec3 v_Color;
+varying vec2 v_UV;
 
 void main() {
 	gl_Position = gl_ModelViewProjectionMatrix * vec4(a_Position, 1);
-	v_Color = vec3(0);
+	v_UV = a_UV;
 }

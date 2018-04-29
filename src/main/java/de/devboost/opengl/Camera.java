@@ -19,4 +19,9 @@ public class Camera {
 	public Vector3f getDirection() {
 		return direction;
 	}
+
+	@Override
+	public String toString() {
+		return "Camera: " + position + ", " + direction;
+	}
 }
